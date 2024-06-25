@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Textarea } from "./ui/textarea";
+import { Frame } from "@gptscript-ai/gptscript";
 
 const storiesPath = "public/stories";
 
@@ -20,6 +21,7 @@ function StoryWriter() {
   const [runStarted, setRunStarted] = useState<boolean>(false);
   const [runFinished, setRunFinished] = useState<boolean | null>(null);
   const [currentTool, setCurrentTool] = useState("");
+  const [events, setEvents] = useState<Frame[]>([]);
 
   async function runScript() {
     setRunStarted(true);
@@ -63,11 +65,27 @@ function StoryWriter() {
 
       // Explanation: We split the chunk into events by splitting it by the event: keyword.
       const eventData = chunk
-      .split("\n\n")
-      .filter((line) => line.startsWith("event: "))
-      .map((line) => line.replace(/^event: /, ""))
+        .split("\n\n")
+        .filter((line) => line.startsWith("event: "))
+        .map((line) => line.replace(/^event: /, ""));
 
       //   Explanation: We parse the JSON data and update the state accordingly
+      eventData.forEach((data) => {
+        try {
+          const parseData = JSON.parse(data);
+          if (parseData.type === "callProgress") {
+            setProgress(parseData.output[parseData.output.length - 1].content);
+            setCurrentTool(parseData.tool?.description || "");
+          } else if (parseData.type === "CallStart") {
+            setCurrentTool(parseData.tool.description || "");
+          } else if (parseData.type === "runFinished") {
+            setRunFinished(true);
+            setRunStarted(false);
+          } else {
+            setEvents((prevEvents) => [...prevEvents, parseData]);
+          }
+        } catch (error) {}
+      });
     }
   }
 
@@ -132,6 +150,14 @@ function StoryWriter() {
           )}
 
           {/* Render Events */}
+          <div className="space-y-5">
+            {events.map((event, index) => (
+                <div>
+                    <span></span>
+                    {/* {renderEventMessage(event)} */}
+                </div>
+            ))}
+          </div>
 
           {runStarted && (
             <div>
